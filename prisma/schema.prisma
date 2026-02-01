@@ -1,0 +1,149 @@
+// ============================================
+// CONFIGURACIÓN DE PRISMA
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS DE NEGOCIO
+// ============================================
+
+enum TipoCliente {
+  VIP
+  NORMAL
+}
+
+enum EstadoTicket {
+  ABIERTO
+  EN_PROGRESO
+  RESUELTO
+  CERRADO
+  ESCALADO
+}
+
+enum Prioridad {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum NivelEscalamiento {
+  NIVEL_1
+  NIVEL_2
+  NIVEL_3
+}
+
+enum Rol {
+  ADMIN
+  SUPERVISOR
+  AGENTE
+}
+
+// ============================================
+// MODELOS
+// ============================================
+
+model Usuario {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  nombre   String
+  rol      Rol     @default(AGENTE)
+  activo   Boolean @default(true)
+
+  // Relación 1–1 opcional con agente
+  agente Agente?
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+model RefreshToken {
+  id        String  @id @default(uuid())
+  token     String  @unique
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Cliente {
+  id      String      @id @default(uuid())
+  nombre  String
+  email   String      @unique
+  tipo    TipoCliente @default(NORMAL)
+  empresa String?
+
+  // Relación 1–N con tickets
+  tickets Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+}
+
+model Agente {
+  id     String            @id @default(uuid())
+  nombre String
+  email  String            @unique
+  nivel  NivelEscalamiento @default(NIVEL_1)
+  activo Boolean           @default(true)
+
+  usuarioId String  @unique
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  // Relación 1–N con tickets asignados
+  tickets Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("agentes")
+}
+
+model Ticket {
+  id          String       @id @default(uuid())
+  titulo      String
+  descripcion String       @db.Text
+  estado      EstadoTicket @default(ABIERTO)
+  prioridad   Prioridad
+
+  nivelEscalamiento NivelEscalamiento @default(NIVEL_1)
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  agenteAsignadoId String?
+  agenteAsignado   Agente? @relation(fields: [agenteAsignadoId], references: [id])
+
+  fechaCreacion      DateTime  @default(now())
+  fechaActualizacion DateTime  @updatedAt
+  fechaResolucion    DateTime?
+
+  tiempoResolucion Int?
+
+  deletedAt DateTime?
+
+  @@index([estado])
+  @@index([prioridad])
+  @@index([clienteId])
+  @@index([agenteAsignadoId])
+  @@index([fechaCreacion])
+  @@index([deletedAt])
+  @@map("tickets")
+}
