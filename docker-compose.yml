@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  # Base de datos relacional
+  postgres:
+    image: postgres:15-alpine
+    container_name: techsupport-postgres
+    environment:
+      POSTGRES_USER: techsupport
+      POSTGRES_PASSWORD: techsupport123
+      POSTGRES_DB: techsupport_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - techsupport-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U techsupport"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Base de datos NoSQL para logs y reportes
+  mongodb:
+    image: mongo:7
+    container_name: techsupport-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: techsupport
+      MONGO_INITDB_ROOT_PASSWORD: techsupport123
+      MONGO_INITDB_DATABASE: techsupport_logs
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - techsupport-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache y sistema de colas
+  redis:
+    image: redis:7-alpine
+    container_name: techsupport-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - techsupport-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  techsupport-network:
+    driver: bridge
