@@ -15,7 +15,7 @@ import {
 } from "./shared/middleware/security.middleware";
 
 // TODO: Descomentar rutas cuando se creen los módulos
-// import { authRoutes } from "./modules/auth/auth.routes";
+import { authRoutes } from "./modules/auth/auth.routes";
 // import { ticketRoutes } from "./modules/tickets/ticket.routes";
 // import { clientRoutes } from "./modules/users/client.routes";
 // import { logRoutes } from "./modules/logs/log.routes";
@@ -53,7 +53,7 @@ app.get("/health", (req, res) => {
 });
 
 // TODO: Descomentar cuando se creen los módulos
-// app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 // app.use("/api/tickets", ticketRoutes);
 // app.use("/api/clients", clientRoutes);
 // app.use("/api/logs", logRoutes);
