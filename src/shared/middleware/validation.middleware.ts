@@ -311,6 +311,58 @@ export const validateCreateClient = (
 };
 
 /**
+ * Validar datos de actualización de cliente
+ */
+export const validateUpdateClient = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const errors: Record<string, string> = {};
+  const { nombre, email, tipo, empresa } = req.body || {};
+
+  // Al menos un campo debe estar presente
+  if (!nombre && !email && !tipo && !empresa) {
+    throw new ValidationError("Se requiere al menos un campo para actualizar");
+  }
+
+  // Nombre (opcional)
+  if (nombre !== undefined && !isValidString(nombre, 2, 150)) {
+    errors.nombre = "Nombre debe tener entre 2 y 150 caracteres";
+  }
+
+  // Email (opcional)
+  if (email !== undefined && !isValidEmail(email)) {
+    errors.email = "Email no es válido";
+  }
+
+  // Tipo (opcional)
+  const validTipos = ["VIP", "NORMAL"];
+  if (tipo && !validTipos.includes(tipo)) {
+    errors.tipo = `Tipo no es válido. Opciones: ${validTipos.join(", ")}`;
+  }
+
+  // Empresa (opcional)
+  if (
+    empresa !== undefined &&
+    empresa !== null &&
+    !isValidString(empresa, 1, 200)
+  ) {
+    errors.empresa = "Empresa debe tener entre 1 y 200 caracteres";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw new ValidationError(JSON.stringify(errors));
+  }
+
+  // Sanitizar
+  if (req.body.nombre) req.body.nombre = sanitizeString(req.body.nombre);
+  if (req.body.empresa) req.body.empresa = sanitizeString(req.body.empresa);
+
+  next();
+};
+
+/**
  * Validar parámetros de paginación en query string
  */
 export const validatePagination = (
