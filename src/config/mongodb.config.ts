@@ -1,25 +1,10 @@
 import mongoose from "mongoose";
 import { config } from "./env.config";
 
-/**
- * Conexión centralizada a MongoDB.
- *
- * MongoDB se utiliza para:
- * - Almacenamiento de logs históricos
- * - Reportes
- * - Analytics
- */
-
 let isConnected = false;
 
-/**
- * Establece la conexión con MongoDB.
- * Reutiliza la conexión existente para evitar múltiples conexiones activas.
- */
 export const connectMongoDB = async (): Promise<void> => {
-  if (isConnected) {
-    return;
-  }
+  if (isConnected) return;
 
   try {
     await mongoose.connect(config.mongodbUri, {
@@ -31,9 +16,6 @@ export const connectMongoDB = async (): Promise<void> => {
     isConnected = true;
     console.log("Conexión a MongoDB establecida");
 
-    /**
-     * Eventos de conexión para observabilidad y monitoreo
-     */
     mongoose.connection.on("error", (error) => {
       console.error("Error en la conexión a MongoDB:", error);
       isConnected = false;
@@ -50,15 +32,8 @@ export const connectMongoDB = async (): Promise<void> => {
   }
 };
 
-/**
- * Cierra explícitamente la conexión con MongoDB.
- * Útil para entornos de testing o apagado controlado de la aplicación.
- */
 export const disconnectMongoDB = async (): Promise<void> => {
-  if (!isConnected) {
-    return;
-  }
-
+  if (!isConnected) return;
   try {
     await mongoose.disconnect();
     isConnected = false;
@@ -69,9 +44,6 @@ export const disconnectMongoDB = async (): Promise<void> => {
   }
 };
 
-/**
- * Indica si la aplicación mantiene una conexión activa con MongoDB.
- */
 export const isMongoDBConnected = (): boolean => {
   return isConnected && mongoose.connection.readyState === 1;
 };

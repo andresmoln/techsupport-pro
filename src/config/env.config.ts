@@ -34,6 +34,7 @@ interface Config {
   queueConcurrency: number;
 }
 
+// Función para obtener variables de entorno
 const getEnvVar = (key: string, required = true): string => {
   const value = process.env[key];
   if (required && !value) {
@@ -46,8 +47,18 @@ export const config: Config = {
   nodeEnv: getEnvVar("NODE_ENV", false) || "development",
   port: Number(getEnvVar("PORT", false) || 3000),
 
-  databaseUrl: getEnvVar("DATABASE_URL"),
-  mongodbUri: getEnvVar("MONGODB_URI"),
+  databaseUrl: `postgresql://${getEnvVar("POSTGRES_USER")}:${getEnvVar(
+    "POSTGRES_PASSWORD",
+  )}@${getEnvVar("POSTGRES_HOST")}:${getEnvVar("POSTGRES_PORT")}/${getEnvVar(
+    "POSTGRES_DB",
+  )}?schema=public`,
+
+  // Construcción dinámica de la URL de MongoDB
+  mongodbUri: `mongodb://${getEnvVar("MONGO_USER")}:${getEnvVar(
+    "MONGO_PASSWORD",
+  )}@${getEnvVar("MONGO_HOST")}:${getEnvVar("MONGO_PORT")}/${getEnvVar(
+    "MONGO_DB",
+  )}?authSource=admin`,
 
   redisHost: getEnvVar("REDIS_HOST", false) || "localhost",
   redisPort: Number(getEnvVar("REDIS_PORT", false) || 6379),
@@ -55,46 +66,34 @@ export const config: Config = {
   jwtSecret: getEnvVar("JWT_SECRET"),
   jwtRefreshSecret: getEnvVar("JWT_REFRESH_SECRET"),
 
-  // 👇 CAST CORRECTO Y CONTROLADO
-  jwtExpiresIn: (getEnvVar("JWT_EXPIRES_IN", false) ||
-    "15m") as JwtExpiresIn,
-
+  jwtExpiresIn: (getEnvVar("JWT_EXPIRES_IN", false) || "15m") as JwtExpiresIn,
   jwtRefreshExpiresIn: (getEnvVar("JWT_REFRESH_EXPIRES_IN", false) ||
     "7d") as JwtExpiresIn,
 
-  rateLimitWindowMs: Number(
-    getEnvVar("RATE_LIMIT_WINDOW_MS", false) || 60000,
-  ),
+  rateLimitWindowMs: Number(getEnvVar("RATE_LIMIT_WINDOW_MS", false) || 60000),
   rateLimitMaxRequests: Number(
     getEnvVar("RATE_LIMIT_MAX_REQUESTS", false) || 100,
   ),
 
-  requestTimeoutMs: Number(
-    getEnvVar("REQUEST_TIMEOUT_MS", false) || 30000,
-  ),
+  requestTimeoutMs: Number(getEnvVar("REQUEST_TIMEOUT_MS", false) || 30000),
 
   slaVipHours: Number(getEnvVar("SLA_VIP_HOURS", false) || 2),
-  slaNormalHours: Number(
-    getEnvVar("SLA_NORMAL_HOURS", false) || 24,
-  ),
+  slaNormalHours: Number(getEnvVar("SLA_NORMAL_HOURS", false) || 24),
 
   maxFileSizeMB: Number(getEnvVar("MAX_FILE_SIZE_MB", false) || 20),
   uploadDir: getEnvVar("UPLOAD_DIR", false) || "./uploads",
 
-  queueConcurrency: Number(
-    getEnvVar("QUEUE_CONCURRENCY", false) || 10,
-  ),
+  queueConcurrency: Number(getEnvVar("QUEUE_CONCURRENCY", false) || 10),
 };
 
+// Validaciones extra para producción
 export const validateConfig = (): void => {
   if (config.nodeEnv === "production") {
     if (config.jwtSecret.length < 32) {
       throw new Error("JWT_SECRET debe tener al menos 32 caracteres");
     }
     if (config.jwtRefreshSecret.length < 32) {
-      throw new Error(
-        "JWT_REFRESH_SECRET debe tener al menos 32 caracteres",
-      );
+      throw new Error("JWT_REFRESH_SECRET debe tener al menos 32 caracteres");
     }
   }
 };

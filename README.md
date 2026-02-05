@@ -310,7 +310,7 @@ CERRADO → (sin transiciones)
 
 ### Colección de Postman
 
-Importa la colección `TechSupport-Pro-Complete.postman_collection.json` para probar todos los endpoints.
+Importa la colección `TechSupport Pro API - Complete.postman_collection.json` para probar todos los endpoints.
 
 ### Ejemplo de flujo completo
 
