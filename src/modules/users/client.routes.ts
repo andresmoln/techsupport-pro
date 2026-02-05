@@ -28,27 +28,20 @@ router.post(
   "/",
   authorize(Rol.ADMIN, Rol.SUPERVISOR),
   validateCreateClient,
-  asyncHandler(clientController.createClient.bind(clientController)),
+  asyncHandler(clientController.createClient),
 );
 
 /**
  * GET /api/clients
  * Listar clientes con paginación.
  */
-router.get(
-  "/",
-  validatePagination,
-  asyncHandler(clientController.getClients.bind(clientController)),
-);
+router.get("/", validatePagination, asyncHandler(clientController.getClients));
 
 /**
  * GET /api/clients/:id
  * Obtener un cliente por ID.
  */
-router.get(
-  "/:id",
-  asyncHandler(clientController.getClientById.bind(clientController)),
-);
+router.get("/:id", asyncHandler(clientController.getClientById));
 
 /**
  * PUT /api/clients/:id
@@ -58,7 +51,7 @@ router.put(
   "/:id",
   authorize(Rol.ADMIN, Rol.SUPERVISOR),
   validateUpdateClient,
-  asyncHandler(clientController.updateClient.bind(clientController)),
+  asyncHandler(clientController.updateClient),
 );
 
 /**
@@ -68,7 +61,7 @@ router.put(
 router.delete(
   "/:id",
   authorize(Rol.ADMIN),
-  asyncHandler(clientController.deleteClient.bind(clientController)),
+  asyncHandler(clientController.deleteClient),
 );
 
 export { router as clientRoutes };

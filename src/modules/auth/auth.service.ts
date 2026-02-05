@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import jwt, { Secret } from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { prisma } from "../../config/database.config";
 import { config } from "../../config/env.config";
 import {
@@ -14,17 +14,8 @@ import {
 } from "../../shared/types";
 import { Rol } from "@prisma/client";
 
-/**
- * Servicio de autenticación.
- * Maneja login, registro, generación de tokens y refresh.
- */
 export class AuthService {
-  /**
-   * Registrar un nuevo usuario.
-   * Solo ADMIN puede crear usuarios.
-   */
   async register(data: RegisterDto): Promise<UserResponse> {
-    // Verificar que el email no esté en uso
     const existingUser = await prisma.usuario.findUnique({
       where: { email: data.email },
     });
@@ -33,20 +24,17 @@ export class AuthService {
       throw new ConflictError("El email ya está registrado");
     }
 
-    // Hashear la contraseña
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // Crear el usuario
     const user = await prisma.usuario.create({
       data: {
         email: data.email,
         password: hashedPassword,
         nombre: data.nombre,
-        rol: data.rol || Rol.AGENTE,
+        rol: data.rol ?? Rol.AGENTE,
       },
     });
 
-    // Si el rol es AGENTE, crear el registro de Agente
     if (user.rol === Rol.AGENTE) {
       await prisma.agente.create({
         data: {
@@ -60,70 +48,42 @@ export class AuthService {
     return this.mapUserToResponse(user);
   }
 
-  /**
-   * Login de usuario.
-   * Retorna access token y refresh token.
-   */
   async login(data: LoginDto): Promise<AuthTokens> {
-    // Buscar usuario por email
     const user = await prisma.usuario.findUnique({
       where: { email: data.email },
     });
 
-    if (!user) {
+    if (!user || !user.activo) {
       throw new UnauthorizedError("Credenciales inválidas");
     }
 
-    // Verificar que el usuario esté activo
-    if (!user.activo) {
-      throw new UnauthorizedError("Usuario inactivo");
-    }
+    const validPassword = await bcrypt.compare(data.password, user.password);
 
-    // Verificar contraseña
-    const isPasswordValid = await bcrypt.compare(data.password, user.password);
-
-    if (!isPasswordValid) {
+    if (!validPassword) {
       throw new UnauthorizedError("Credenciales inválidas");
     }
 
-    // Generar tokens
     return this.generateTokens(user.id, user.email, user.rol);
   }
 
-  /**
-   * Refresh token.
-   * Genera un nuevo access token usando un refresh token válido.
-   */
   async refreshToken(data: RefreshTokenDto): Promise<AuthTokens> {
-    // Buscar el refresh token en la base de datos
     const refreshToken = await prisma.refreshToken.findUnique({
       where: { token: data.refreshToken },
       include: { usuario: true },
     });
 
-    if (!refreshToken) {
+    if (
+      !refreshToken ||
+      !refreshToken.usuario.activo ||
+      new Date() > refreshToken.expiresAt
+    ) {
       throw new UnauthorizedError("Refresh token inválido");
     }
 
-    // Verificar que no haya expirado
-    if (new Date() > refreshToken.expiresAt) {
-      await prisma.refreshToken.delete({
-        where: { id: refreshToken.id },
-      });
-      throw new UnauthorizedError("Refresh token expirado");
-    }
-
-    // Verificar que el usuario esté activo
-    if (!refreshToken.usuario.activo) {
-      throw new UnauthorizedError("Usuario inactivo");
-    }
-
-    // Eliminar el refresh token usado (one-time use)
     await prisma.refreshToken.delete({
       where: { id: refreshToken.id },
     });
 
-    // Generar nuevos tokens
     return this.generateTokens(
       refreshToken.usuario.id,
       refreshToken.usuario.email,
@@ -131,25 +91,12 @@ export class AuthService {
     );
   }
 
-  /**
-   * Logout.
-   * Invalida el refresh token.
-   */
   async logout(refreshToken: string): Promise<void> {
-    const token = await prisma.refreshToken.findUnique({
+    await prisma.refreshToken.deleteMany({
       where: { token: refreshToken },
     });
-
-    if (token) {
-      await prisma.refreshToken.delete({
-        where: { id: token.id },
-      });
-    }
   }
 
-  /**
-   * Obtener usuario por ID.
-   */
   async getUserById(userId: string): Promise<UserResponse> {
     const user = await prisma.usuario.findUnique({
       where: { id: userId },
@@ -162,34 +109,23 @@ export class AuthService {
     return this.mapUserToResponse(user);
   }
 
-  /**
-   * Generar access token y refresh token.
-   */
   private async generateTokens(
     userId: string,
     email: string,
     rol: Rol,
   ): Promise<AuthTokens> {
-    // Payload del JWT
-    const payload = {
-      userId,
-      email,
-      rol,
-    };
+    const payload = { userId, email, rol };
 
-    // Access token (corta vida)
-    const accessToken = jwt.sign(payload, config.jwtSecret as Secret, {
+    const accessToken = jwt.sign(payload, config.jwtSecret, {
       expiresIn: config.jwtExpiresIn,
-    });
+    } satisfies SignOptions);
 
-    // Refresh token (larga vida)
-    const refreshToken = jwt.sign(payload, config.jwtRefreshSecret as Secret, {
+    const refreshToken = jwt.sign(payload, config.jwtRefreshSecret, {
       expiresIn: config.jwtRefreshExpiresIn,
-    });
+    } satisfies SignOptions);
 
-    // Guardar refresh token en la base de datos
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 días
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     await prisma.refreshToken.create({
       data: {
@@ -202,13 +138,10 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: config.jwtExpiresIn,
+      expiresIn: String(config.jwtExpiresIn),
     };
   }
 
-  /**
-   * Mapear entidad Usuario a respuesta sin datos sensibles.
-   */
   private mapUserToResponse(user: {
     id: string;
     email: string;

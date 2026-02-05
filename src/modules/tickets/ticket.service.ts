@@ -19,11 +19,10 @@ import {
 
 export class TicketService {
   /**
-   * Crear un nuevo ticket.
-   * La prioridad se asigna automáticamente según el tipo de cliente.
+   * Crear ticket con prioridad asignada automáticamente según tipo de cliente.
+   * VIP → ALTA, NORMAL → MEDIA.
    */
   async createTicket(data: CreateTicketDto, userId: string, userRol: Rol) {
-    // Verificar que el cliente existe
     const cliente = await prisma.cliente.findUnique({
       where: { id: data.clienteId },
     });
@@ -32,7 +31,6 @@ export class TicketService {
       throw new NotFoundError("Cliente no encontrado");
     }
 
-    // Si se asigna agente, verificar que existe
     if (data.agenteAsignadoId) {
       const agente = await prisma.agente.findUnique({
         where: { id: data.agenteAsignadoId },
@@ -43,11 +41,9 @@ export class TicketService {
       }
     }
 
-    // Asignar prioridad según tipo de cliente
     const prioridad =
       cliente.tipo === TipoCliente.VIP ? Prioridad.ALTA : Prioridad.MEDIA;
 
-    // Crear el ticket
     const ticket = await prisma.ticket.create({
       data: {
         titulo: data.titulo,
@@ -68,8 +64,8 @@ export class TicketService {
   }
 
   /**
-   * Obtener tickets con filtros y paginación.
-   * Los agentes solo ven tickets asignados a ellos.
+   * Listar tickets con filtros y paginación.
+   * Agentes solo ven tickets asignados a ellos.
    */
   async getTickets(
     filters: TicketFilters,
@@ -81,12 +77,10 @@ export class TicketService {
     const pageSize = Math.min(pagination.pageSize || 10, 100);
     const skip = (page - 1) * pageSize;
 
-    // Construir filtros
     const where: any = {
-      deletedAt: null, // Excluir tickets con soft delete
+      deletedAt: null,
     };
 
-    // Si es agente, solo puede ver sus tickets
     if (userRol === Rol.AGENTE) {
       const agente = await prisma.agente.findUnique({
         where: { usuarioId: userId },
@@ -99,7 +93,6 @@ export class TicketService {
       where.agenteAsignadoId = agente.id;
     }
 
-    // Aplicar filtros adicionales
     if (filters.estado) {
       where.estado = filters.estado as EstadoTicket;
     }
@@ -124,11 +117,10 @@ export class TicketService {
       }
 
       if (filters.fechaHasta) {
-        where.fechaHasta.lte = filters.fechaHasta;
+        where.fechaCreacion.lte = filters.fechaHasta;
       }
     }
 
-    // Ejecutar consultas en paralelo
     const [tickets, totalItems] = await Promise.all([
       prisma.ticket.findMany({
         where,
@@ -161,8 +153,8 @@ export class TicketService {
   }
 
   /**
-   * Obtener un ticket por ID.
-   * Los agentes solo pueden ver sus propios tickets.
+   * Obtener ticket por ID.
+   * Agentes solo pueden ver sus propios tickets.
    */
   async getTicketById(ticketId: string, userId: string, userRol: Rol) {
     const ticket = await prisma.ticket.findUnique({
@@ -177,7 +169,6 @@ export class TicketService {
       throw new NotFoundError("Ticket no encontrado");
     }
 
-    // Si es agente, verificar que el ticket le pertenece
     if (userRol === Rol.AGENTE) {
       const agente = await prisma.agente.findUnique({
         where: { usuarioId: userId },
@@ -192,8 +183,9 @@ export class TicketService {
   }
 
   /**
-   * Actualizar un ticket.
-   * Aplica reglas de negocio y calcula tiempo de resolución.
+   * Actualizar ticket con validación de transiciones de estado
+   * y restricciones de nivel de agente para tickets escalados.
+   * Calcula automáticamente el tiempo de resolución.
    */
   async updateTicket(
     ticketId: string,
@@ -203,12 +195,10 @@ export class TicketService {
   ) {
     const ticket = await this.getTicketById(ticketId, userId, userRol);
 
-    // Validar transición de estado
     if (data.estado) {
       this.validateEstadoTransition(ticket.estado, data.estado as EstadoTicket);
     }
 
-    // Si se asigna agente, verificar que existe y validar nivel
     if (data.agenteAsignadoId) {
       const agente = await prisma.agente.findUnique({
         where: { id: data.agenteAsignadoId },
@@ -218,7 +208,6 @@ export class TicketService {
         throw new NotFoundError("Agente no encontrado o inactivo");
       }
 
-      // Validar que el agente tenga el nivel adecuado para tickets escalados
       if (ticket.estado === EstadoTicket.ESCALADO) {
         if (
           ticket.nivelEscalamiento === NivelEscalamiento.NIVEL_2 &&
@@ -241,7 +230,6 @@ export class TicketService {
       }
     }
 
-    // Preparar datos de actualización
     const updateData: any = {
       titulo: data.titulo,
       descripcion: data.descripcion,
@@ -249,7 +237,6 @@ export class TicketService {
       agenteAsignadoId: data.agenteAsignadoId,
     };
 
-    // Si se resuelve el ticket, calcular tiempo de resolución
     if (
       data.estado === EstadoTicket.RESUELTO &&
       ticket.estado !== EstadoTicket.RESUELTO
@@ -257,13 +244,12 @@ export class TicketService {
       const now = new Date();
       const tiempoResolucion = Math.floor(
         (now.getTime() - ticket.fechaCreacion.getTime()) / (1000 * 60),
-      ); // en minutos
+      );
 
       updateData.fechaResolucion = now;
       updateData.tiempoResolucion = tiempoResolucion;
     }
 
-    // Actualizar el ticket
     const updatedTicket = await prisma.ticket.update({
       where: { id: ticketId },
       data: updateData,
@@ -277,7 +263,7 @@ export class TicketService {
   }
 
   /**
-   * Eliminar un ticket (soft delete).
+   * Soft delete de ticket.
    */
   async deleteTicket(ticketId: string, userId: string, userRol: Rol) {
     const ticket = await this.getTicketById(ticketId, userId, userRol);
@@ -291,13 +277,13 @@ export class TicketService {
   }
 
   /**
-   * Escalar tickets que excedan el SLA.
-   * Este método se ejecutará periódicamente con un cron job.
+   * Escalar tickets que excedieron el SLA.
+   * VIP: 2 horas, Normal: 24 horas.
+   * Nivel 1 → Nivel 2 → Nivel 3.
    */
   async escalarTicketsPorSLA() {
     const now = new Date();
 
-    // Obtener tickets abiertos sin resolver
     const ticketsAbiertos = await prisma.ticket.findMany({
       where: {
         estado: {
@@ -321,7 +307,6 @@ export class TicketService {
           ? config.slaVipHours
           : config.slaNormalHours;
 
-      // Si excede el SLA, escalar
       if (horasTranscurridas > slaHoras) {
         const nuevoNivel =
           ticket.nivelEscalamiento === NivelEscalamiento.NIVEL_1
@@ -348,7 +333,8 @@ export class TicketService {
   }
 
   /**
-   * Validar transición de estado.
+   * Valida que la transición de estado sea permitida.
+   * Previene cambios ilógicos como CERRADO → ABIERTO.
    */
   private validateEstadoTransition(
     estadoActual: EstadoTicket,

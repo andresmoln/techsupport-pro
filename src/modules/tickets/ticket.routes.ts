@@ -28,7 +28,7 @@ router.use(authenticate);
 router.post(
   "/escalar-sla",
   authorize(Rol.ADMIN, Rol.SUPERVISOR),
-  asyncHandler(ticketController.escalarPorSLA.bind(ticketController)),
+  asyncHandler(ticketController.escalarPorSLA),
 );
 
 /**
@@ -38,7 +38,7 @@ router.post(
 router.post(
   "/",
   validateCreateTicket,
-  asyncHandler(ticketController.createTicket.bind(ticketController)),
+  asyncHandler(ticketController.createTicket),
 );
 
 /**
@@ -49,17 +49,14 @@ router.get(
   "/",
   validatePagination,
   validateDateFilters,
-  asyncHandler(ticketController.getTickets.bind(ticketController)),
+  asyncHandler(ticketController.getTickets),
 );
 
 /**
  * GET /api/tickets/:id
  * Obtener un ticket por ID.
  */
-router.get(
-  "/:id",
-  asyncHandler(ticketController.getTicketById.bind(ticketController)),
-);
+router.get("/:id", asyncHandler(ticketController.getTicketById));
 
 /**
  * PUT /api/tickets/:id
@@ -68,7 +65,7 @@ router.get(
 router.put(
   "/:id",
   validateUpdateTicket,
-  asyncHandler(ticketController.updateTicket.bind(ticketController)),
+  asyncHandler(ticketController.updateTicket),
 );
 
 /**
@@ -79,7 +76,7 @@ router.put(
 router.delete(
   "/:id",
   authorize(Rol.ADMIN, Rol.SUPERVISOR),
-  asyncHandler(ticketController.deleteTicket.bind(ticketController)),
+  asyncHandler(ticketController.deleteTicket),
 );
 
 export { router as ticketRoutes };

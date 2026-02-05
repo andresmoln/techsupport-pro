@@ -14,12 +14,11 @@ import {
   requestLogger,
 } from "./shared/middleware/security.middleware";
 
-// TODO: Descomentar rutas cuando se creen los módulos
+// Rutas
 import { authRoutes } from "./modules/auth/auth.routes";
 import { ticketRoutes } from "./modules/tickets/ticket.routes";
 import { clientRoutes } from "./modules/users/client.routes";
 // import { logRoutes } from "./modules/logs/log.routes";
-// import { queueRoutes } from "./modules/logs/queue.routes";
 
 const app = express();
 
@@ -57,7 +56,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/clients", clientRoutes);
 // app.use("/api/logs", logRoutes);
-// app.use("/api/queues", queueRoutes);
 
 // 404 para rutas no encontradas
 app.use((req, res) => {

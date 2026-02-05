@@ -1,151 +1,100 @@
 import dotenv from "dotenv";
+import type { SignOptions } from "jsonwebtoken";
 
-// Carga las variables de entorno desde el archivo .env
 dotenv.config();
 
-/**
- * Configuración centralizada de la aplicación.
- * Todas las variables de entorno se leen, validan y tipan aquí.
- */
+type JwtExpiresIn = SignOptions["expiresIn"];
+
 interface Config {
-  // servidor
   nodeEnv: string;
   port: number;
 
-  // bases de datos
   databaseUrl: string;
   mongodbUri: string;
 
-  // redis
   redisHost: string;
   redisPort: number;
 
-  // jwt
   jwtSecret: string;
   jwtRefreshSecret: string;
-  jwtExpiresIn: string;
-  jwtRefreshExpiresIn: string;
+  jwtExpiresIn: JwtExpiresIn;
+  jwtRefreshExpiresIn: JwtExpiresIn;
 
-  // rate limiting
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
 
-  // timeouts
   requestTimeoutMs: number;
 
-  // sla
   slaVipHours: number;
   slaNormalHours: number;
 
-  // archivos
   maxFileSizeMB: number;
   uploadDir: string;
 
-  // bull queue
   queueConcurrency: number;
 }
 
-/**
- * Helper para obtener variables de entorno.
- * Lanza un error si la variable es requerida y no está definida.
- */
-const getEnvVar = (key: string, required: boolean = true): string => {
+const getEnvVar = (key: string, required = true): string => {
   const value = process.env[key];
-
   if (required && !value) {
-    throw new Error(
-      `Variable de entorno ${key} es requerida pero no está definida`,
-    );
+    throw new Error(`Variable de entorno ${key} es requerida`);
   }
-
-  return value || "";
+  return value ?? "";
 };
 
-/**
- * Objeto de configuración exportado y tipado.
- */
 export const config: Config = {
-  // servidor
   nodeEnv: getEnvVar("NODE_ENV", false) || "development",
-  port: parseInt(getEnvVar("PORT", false) || "3000", 10),
+  port: Number(getEnvVar("PORT", false) || 3000),
 
-  // bases de datos
   databaseUrl: getEnvVar("DATABASE_URL"),
   mongodbUri: getEnvVar("MONGODB_URI"),
 
-  // redis
   redisHost: getEnvVar("REDIS_HOST", false) || "localhost",
-  redisPort: parseInt(getEnvVar("REDIS_PORT", false) || "6379", 10),
+  redisPort: Number(getEnvVar("REDIS_PORT", false) || 6379),
 
-  // jwt
   jwtSecret: getEnvVar("JWT_SECRET"),
   jwtRefreshSecret: getEnvVar("JWT_REFRESH_SECRET"),
-  jwtExpiresIn: getEnvVar("JWT_EXPIRES_IN", false) || "15m",
-  jwtRefreshExpiresIn: getEnvVar("JWT_REFRESH_EXPIRES_IN", false) || "7d",
 
-  // rate limiting
-  rateLimitWindowMs: parseInt(
-    getEnvVar("RATE_LIMIT_WINDOW_MS", false) || "60000",
-    10,
-  ),
-  rateLimitMaxRequests: parseInt(
-    getEnvVar("RATE_LIMIT_MAX_REQUESTS", false) || "100",
-    10,
-  ),
+  // 👇 CAST CORRECTO Y CONTROLADO
+  jwtExpiresIn: (getEnvVar("JWT_EXPIRES_IN", false) ||
+    "15m") as JwtExpiresIn,
 
-  // timeouts
-  requestTimeoutMs: parseInt(
-    getEnvVar("REQUEST_TIMEOUT_MS", false) || "30000",
-    10,
+  jwtRefreshExpiresIn: (getEnvVar("JWT_REFRESH_EXPIRES_IN", false) ||
+    "7d") as JwtExpiresIn,
+
+  rateLimitWindowMs: Number(
+    getEnvVar("RATE_LIMIT_WINDOW_MS", false) || 60000,
+  ),
+  rateLimitMaxRequests: Number(
+    getEnvVar("RATE_LIMIT_MAX_REQUESTS", false) || 100,
   ),
 
-  // sla
-  slaVipHours: parseInt(getEnvVar("SLA_VIP_HOURS", false) || "2", 10),
-  slaNormalHours: parseInt(getEnvVar("SLA_NORMAL_HOURS", false) || "24", 10),
+  requestTimeoutMs: Number(
+    getEnvVar("REQUEST_TIMEOUT_MS", false) || 30000,
+  ),
 
-  // archivos
-  maxFileSizeMB: parseInt(getEnvVar("MAX_FILE_SIZE_MB", false) || "20", 10),
+  slaVipHours: Number(getEnvVar("SLA_VIP_HOURS", false) || 2),
+  slaNormalHours: Number(
+    getEnvVar("SLA_NORMAL_HOURS", false) || 24,
+  ),
+
+  maxFileSizeMB: Number(getEnvVar("MAX_FILE_SIZE_MB", false) || 20),
   uploadDir: getEnvVar("UPLOAD_DIR", false) || "./uploads",
 
-  // bull queue
-  queueConcurrency: parseInt(getEnvVar("QUEUE_CONCURRENCY", false) || "10", 10),
+  queueConcurrency: Number(
+    getEnvVar("QUEUE_CONCURRENCY", false) || 10,
+  ),
 };
 
-/**
- * Valida la configuración al iniciar la aplicación.
- * Se ejecuta una sola vez al arranque.
- */
 export const validateConfig = (): void => {
-  console.log("Validando configuración...");
-
-  // validaciones de seguridad específicas para producción
   if (config.nodeEnv === "production") {
     if (config.jwtSecret.length < 32) {
-      throw new Error(
-        "JWT_SECRET debe tener al menos 32 caracteres en producción",
-      );
+      throw new Error("JWT_SECRET debe tener al menos 32 caracteres");
     }
-
     if (config.jwtRefreshSecret.length < 32) {
       throw new Error(
-        "JWT_REFRESH_SECRET debe tener al menos 32 caracteres en producción",
+        "JWT_REFRESH_SECRET debe tener al menos 32 caracteres",
       );
     }
   }
-
-  // validación de puertos
-  if (config.port < 1 || config.port > 65535) {
-    throw new Error("PORT debe estar entre 1 y 65535");
-  }
-
-  if (config.redisPort < 1 || config.redisPort > 65535) {
-    throw new Error("REDIS_PORT debe estar entre 1 y 65535");
-  }
-
-  console.log("Configuración válida");
-  console.log(`Entorno: ${config.nodeEnv}`);
-  console.log(`Puerto: ${config.port}`);
-  console.log(
-    `SLA VIP: ${config.slaVipHours}h | Normal: ${config.slaNormalHours}h`,
-  );
 };

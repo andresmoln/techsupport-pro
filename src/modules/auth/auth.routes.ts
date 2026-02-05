@@ -24,7 +24,7 @@ router.post(
   authenticate,
   authorize(Rol.ADMIN),
   validateRegister,
-  asyncHandler(authController.register.bind(authController)),
+  asyncHandler(authController.register),
 );
 
 /**
@@ -35,36 +35,25 @@ router.post(
   "/login",
   authRateLimiter,
   validateLogin,
-  asyncHandler(authController.login.bind(authController)),
+  asyncHandler(authController.login),
 );
 
 /**
  * POST /api/auth/refresh
  * Renovar access token.
  */
-router.post(
-  "/refresh",
-  asyncHandler(authController.refreshToken.bind(authController)),
-);
+router.post("/refresh", asyncHandler(authController.refreshToken));
 
 /**
  * POST /api/auth/logout
  * Cerrar sesión.
  */
-router.post(
-  "/logout",
-  authenticate,
-  asyncHandler(authController.logout.bind(authController)),
-);
+router.post("/logout", authenticate, asyncHandler(authController.logout));
 
 /**
  * GET /api/auth/me
  * Obtener información del usuario autenticado.
  */
-router.get(
-  "/me",
-  authenticate,
-  asyncHandler(authController.getCurrentUser.bind(authController)),
-);
+router.get("/me", authenticate, asyncHandler(authController.getCurrentUser));
 
 export { router as authRoutes };
