@@ -1,25 +1,29 @@
-# Dependencias
+# Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Variables de entorno
-.env
 
 # Build
 dist/
 build/
 
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
 # Logs
 logs/
 *.log
+npm-debug.log*
 
-# Sistema operativo
+# Prisma
+prisma/migrations/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -27,11 +31,14 @@ Thumbs.db
 
 # Uploads
 uploads/
-temp/
 
-# Testing
-coverage/
-
-# Prisma
-prisma/*.db
-prisma/*.db-journal
+# Docker volumes
+postgres_data/
+postgres_data_dev/
+postgres_data_prod/
+mongodb_data/
+mongodb_data_dev/
+mongodb_data_prod/
+redis_data/
+redis_data_dev/
+redis_data_prod/
